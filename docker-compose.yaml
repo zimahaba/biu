@@ -1,0 +1,12 @@
+
+services:
+
+  db:
+    hostname: postgres
+    image: postgres:17
+    environment:
+      POSTGRES_USER: biu
+      POSTGRES_PASSWORD: biu
+      POSTGRES_DB: biu
+    ports:
+      - "5432:5432"
