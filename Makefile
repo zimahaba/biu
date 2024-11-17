@@ -4,4 +4,4 @@ build:
 	go build -o ./ ./...
 
 run:
-	go run biu.go
+	go run .
