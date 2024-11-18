@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log/slog"
 	"math"
 	"net/http"
 )
@@ -15,7 +14,6 @@ const (
 func GenerateTokenCookie(username string) (*http.Cookie, error) {
 	token, err := GenerateToken(username)
 	if err != nil {
-		slog.Error(err.Error())
 		return &http.Cookie{}, err
 	}
 

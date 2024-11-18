@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -15,9 +16,15 @@ func main() {
 		log.Fatal("fail")
 	}
 
+	rc := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Redis server address
+		Password: "biu",            // No password set
+		DB:       0,                // Use default DB
+	})
+
 	e := echo.New()
 
-	h := BiuHandler{DB: db}
+	h := BiuHandler{DB: db, RC: rc}
 
 	e.GET("/users/:id", h.GetUserHandler)
 	e.POST("/users", h.CreateUserHandler)
