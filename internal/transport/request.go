@@ -1,4 +1,6 @@
-package main
+package transport
+
+import "github.com/zimahaba/biu/internal/models"
 
 type CredentialsRequest struct {
 	Username     string
@@ -12,9 +14,9 @@ type UserRequest struct {
 	Password string
 }
 
-func (request UserRequest) ToAppUser() AppUser {
-	creds := UserCredentials{Username: request.Email, Password: request.Password}
-	return AppUser{
+func (request UserRequest) ToAppUser() models.AppUser {
+	creds := models.UserCredentials{Username: request.Email, Password: request.Password}
+	return models.AppUser{
 		Name:            request.Name,
 		Email:           request.Email,
 		UserCredentials: creds,

@@ -1,0 +1,51 @@
+
+services:
+
+  postgres:
+    hostname: postgres
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_USER: biu
+      POSTGRES_PASSWORD: biu
+      POSTGRES_DB: biu
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: /usr/bin/pg_isready
+      interval: 60s
+      retries: 5
+      start_period: 1s
+  
+  redis:
+    image: redis:7.4.1
+    container_name: redis
+    ports:
+      - "6379:6379"
+    environment:
+    - REDIS_PASSWORD=biu
+  
+  biu:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    links: 
+      - postgres
+    image: biu:1.0.0
+    container_name: biu
+    ports:
+      - "8080:8080"
+    environment:
+    - SERVER_PORT=8080
+    - DB_HOST=postgres
+    - DB_PORT=5432
+    - DB_NAME=biu
+    - DB_USER=biu
+    - DB_PASSWORD=biu
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+    - REDIS_PASS=biu
+    - JWT_KEY=secret
+    - ALLOWED_ORIGINS=*

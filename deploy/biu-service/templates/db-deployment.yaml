@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+# Deployment object
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}-db
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.app.name }}-db
+    spec:
+      containers:
+        - name: {{ .Values.app.name }}-db
+          image: postgres:15.3
+          ports:
+            - containerPort: {{ .Values.db.port }}
+          env:
+            - name: POSTGRES_USER
+              value: "{{ .Values.db.user }}"
+            - name: POSTGRES_PASSWORD
+              value: "{{ .Values.db.pass }}"
+            - name: POSTGRES_DB
+              value: "{{ .Values.db.name }}"
+          volumeMounts:
+            - mountPath: /var/lib/postgres/data
+              name: db-data
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.app.name }}-persistent-volume-claim

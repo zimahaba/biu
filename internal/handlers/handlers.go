@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"context"
@@ -11,6 +11,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
+	"github.com/zimahaba/biu/internal/models"
+	"github.com/zimahaba/biu/internal/security"
+	"github.com/zimahaba/biu/internal/transport"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,7 +29,7 @@ func (h BiuHandler) GetUserHandler(c echo.Context) error {
 }
 
 func (h BiuHandler) CreateUserHandler(c echo.Context) error {
-	userRequest := UserRequest{}
+	userRequest := transport.UserRequest{}
 	err := json.NewDecoder(c.Request().Body).Decode(&userRequest)
 	if err != nil {
 		return err
@@ -44,18 +47,18 @@ func (h BiuHandler) CreateUserHandler(c echo.Context) error {
 		return result.Error
 	}
 
-	return c.JSON(http.StatusOK, IdResource{Id: u.ID})
+	return c.JSON(http.StatusOK, transport.IdResource{Id: u.ID})
 }
 
 func (h BiuHandler) LoginHandler(c echo.Context) error {
-	var creds CredentialsRequest
+	var creds transport.CredentialsRequest
 	err := json.NewDecoder(c.Request().Body).Decode(&creds)
 	if err != nil {
 		return err
 	}
 
 	var passwordHash string
-	result := h.DB.Model(&UserCredentials{}).Select("password").First(&passwordHash, "username = ?", creds.Username)
+	result := h.DB.Model(&models.UserCredentials{}).Select("password").First(&passwordHash, "username = ?", creds.Username)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -65,24 +68,25 @@ func (h BiuHandler) LoginHandler(c echo.Context) error {
 		return err
 	}
 
-	tokenCookie, err := GenerateTokenCookie(creds.Username)
+	tokenCookie, err := security.GenerateTokenCookie(creds.Username)
 	if err != nil {
 		return err
 	}
 	c.SetCookie(tokenCookie)
-
+	fmt.Printf("tokenCookie: %v.\n", tokenCookie)
 	if creds.KeepLoggedIn {
-		refreshToken, refreshCookie, err := GenerateRefreshCookie(creds.Username)
+		refreshToken, refreshCookie, err := security.GenerateRefreshCookie(creds.Username)
 		if err != nil {
 			return err
 		}
 
-		result = h.DB.Model(&UserCredentials{}).Where("username = ?", creds.Username).Update("refresh_token", refreshToken)
+		result = h.DB.Model(&models.UserCredentials{}).Where("username = ?", creds.Username).Update("refresh_token", refreshToken)
 		if result.Error != nil {
 			return result.Error
 		}
 
 		c.SetCookie(refreshCookie)
+		fmt.Printf("refreshCookie: %v.\n", refreshCookie)
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -94,12 +98,12 @@ func (h BiuHandler) LogoutHandler(c echo.Context) error {
 		return err
 	}
 
-	result := h.DB.Model(&UserCredentials{}).Where("refresh_token = ?", refreshToken.Value).Update("refresh_token", nil)
+	result := h.DB.Model(&models.UserCredentials{}).Where("refresh_token = ?", refreshToken.Value).Update("refresh_token", nil)
 	if result.Error != nil {
 		return result.Error
 	}
-	c.SetCookie(GenerateCookie(TOKEN_COOKIE_NAME, "", -1))
-	c.SetCookie(GenerateCookie(REFRESH_COOKIE_NAME, "", -1))
+	c.SetCookie(security.GenerateCookie(security.TOKEN_COOKIE_NAME, "", -1))
+	c.SetCookie(security.GenerateCookie(security.REFRESH_COOKIE_NAME, "", -1))
 	return c.NoContent(http.StatusOK)
 }
 
@@ -110,23 +114,23 @@ func (h BiuHandler) RefreshHandler(c echo.Context) error {
 	}
 
 	var username string
-	result := h.DB.Model(&UserCredentials{}).Select("username").First(&username, "refresh_token = ?", refreshToken.Value)
+	result := h.DB.Model(&models.UserCredentials{}).Select("username").First(&username, "refresh_token = ?", refreshToken.Value)
 	if result.Error != nil {
 		return result.Error
 	}
 
-	tokenCookie, err := GenerateTokenCookie(username)
+	tokenCookie, err := security.GenerateTokenCookie(username)
 	if err != nil {
 		return err
 	}
 	c.SetCookie(tokenCookie)
 
-	newRefreshToken, refreshCookie, err := GenerateRefreshCookie(username)
+	newRefreshToken, refreshCookie, err := security.GenerateRefreshCookie(username)
 	if err != nil {
 		return err
 	}
 
-	result = h.DB.Model(&UserCredentials{}).Where("username = ?", username).Update("refresh_token", newRefreshToken)
+	result = h.DB.Model(&models.UserCredentials{}).Where("username = ?", username).Update("refresh_token", newRefreshToken)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -137,19 +141,19 @@ func (h BiuHandler) RefreshHandler(c echo.Context) error {
 }
 
 func (h BiuHandler) ForgotHandler(c echo.Context) error {
-	var creds CredentialsRequest
+	var creds transport.CredentialsRequest
 	err := json.NewDecoder(c.Request().Body).Decode(&creds)
 	if err != nil {
 		return err
 	}
 
 	var userId int
-	result := h.DB.Model(&AppUser{}).Select("id").First(&userId, "email = ?", creds.Username)
+	result := h.DB.Model(&models.AppUser{}).Select("id").First(&userId, "email = ?", creds.Username)
 	if result.Error != nil {
 		return result.Error
 	}
 
-	randomToken, err := GenerateRandomToken()
+	randomToken, err := security.GenerateRandomToken()
 	if err != nil {
 		return err
 	}
@@ -184,10 +188,10 @@ func (h BiuHandler) VerifyHandler(c echo.Context) error {
 		return errors.New("no token")
 	}
 
-	claims := &Claims{}
+	claims := &security.Claims{}
 
 	jwtToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return JwtKey, nil
+		return security.JwtKey, nil
 	})
 
 	if err != nil || !jwtToken.Valid {
@@ -195,10 +199,10 @@ func (h BiuHandler) VerifyHandler(c echo.Context) error {
 	}
 
 	var userId int
-	result := h.DB.Model(&AppUser{}).Select("id").First(&userId, "email = ?", claims.Username)
+	result := h.DB.Model(&models.AppUser{}).Select("id").First(&userId, "email = ?", claims.Username)
 	if result.Error != nil {
 		return result.Error
 	}
 
-	return c.JSON(http.StatusOK, IdResource{Id: userId})
+	return c.JSON(http.StatusOK, transport.IdResource{Id: userId})
 }

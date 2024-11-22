@@ -9,7 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/redis/go-redis/v9"
+	"github.com/zimahaba/biu/internal/handlers"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -17,22 +17,28 @@ import (
 func main() {
 	loadEnv()
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASS"), os.Getenv("DB_NAME"))
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil && db != nil {
 		log.Fatal("fail")
 	}
+	log.Printf("Connected to db: %v\n", dsn)
 
-	rc := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+	rsn := fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
+	/*rc := redis.NewClient(&redis.Options{
+		Addr:     rsn,
 		Password: os.Getenv("REDIS_PASS"),
 		DB:       0,
-	})
+	})*/
+	log.Printf("Connected to redis: %v\n", rsn)
 
 	e := echo.New()
 
-	h := BiuHandler{DB: db, RC: rc}
+	h := handlers.BiuHandler{DB: db}
 
+	e.GET("/health", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
 	e.GET("/users/:id", h.GetUserHandler)
 	e.POST("/users", h.CreateUserHandler)
 	e.POST("/auth/login", h.LoginHandler)
