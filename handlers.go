@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -175,4 +176,29 @@ func (h BiuHandler) RecoverHandler(c echo.Context) error {
 
 	fmt.Printf("userId %v", userId)
 	return c.NoContent(http.StatusOK)
+}
+
+func (h BiuHandler) VerifyHandler(c echo.Context) error {
+	token := c.QueryParam("tk")
+	if token == "" {
+		return errors.New("no token")
+	}
+
+	claims := &Claims{}
+
+	jwtToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return JwtKey, nil
+	})
+
+	if err != nil || !jwtToken.Valid {
+		return err
+	}
+
+	var userId int
+	result := h.DB.Model(&AppUser{}).Select("id").First(&userId, "email = ?", claims.Username)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return c.JSON(http.StatusOK, IdResource{Id: userId})
 }

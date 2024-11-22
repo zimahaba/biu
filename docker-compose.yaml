@@ -9,11 +9,11 @@ services:
       POSTGRES_PASSWORD: biu
       POSTGRES_DB: biu
     ports:
-      - "5432:5432"
+      - "5433:5432"
   
-  redis:
-    image: redis:7.4.1
-    ports:
-      - "6379:6379"
-    environment:
-    - REDIS_PASSWORD=biu
+  #redis:
+  #  image: redis:7.4.1
+  #  ports:
+  #    - "6379:6379"
+  #  environment:
+  #  - REDIS_PASSWORD=biu
